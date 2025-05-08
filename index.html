@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lenovo Warranty Check API</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.7;
+            padding: 3em 2em;
+            background-color: #1a1a1a; /* Dark background */
+            color: #e0e0e0; /* Light text */
+            margin: 0;
+        }
+        .container { max-width: 800px; margin: auto; }
+        h1 {
+            font-size: 3em; /* Larger title */
+            font-weight: 700;
+            margin-bottom: 0.5em;
+            /* Basic gradient effect (adjust colors as needed) */
+            background: -webkit-linear-gradient(315deg, #42d392 25%, #647eff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        h2 {
+            font-size: 1.8em;
+            margin-top: 2em;
+            margin-bottom: 0.8em;
+            border-bottom: 1px solid #444;
+            padding-bottom: 0.3em;
+            color: #a0a0a0;
+        }
+        h3 {
+            font-size: 1.3em;
+            margin-top: 1.5em;
+            margin-bottom: 0.6em;
+            color: #c0c0c0;
+        }
+        code {
+            background-color: #2a2a2a; /* Darker code background */
+            color: #f0f0f0; /* Lighter code text */
+            padding: 0.3em 0.6em;
+            border-radius: 5px;
+            font-size: 0.95em;
+            border: 1px solid #444;
+        }
+        p {
+            margin-bottom: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lenovo Warranty Check API</h1>
+        <p>Welcome! This API allows you to check the warranty status of Lenovo devices using their serial number.</p>
+        
+        <h2>How to Use</h2>
+        <p>Make a GET request to the following endpoint, replacing <code>{serial_number}</code> with the actual serial number:</p>
+        <p><code>/warranty/{serial_number}</code></p>
+
+        <h3>Example Usage:</h3>
+        <p>To check the warranty for a device with serial number <code>ABC123XYZ</code>, you would access:</p>
+        <p><code>http://127.0.0.1:8000/warranty/ABC123XYZ</code></p>
+        <p>(Assuming the API is running locally on port 8000)</p>
+
+        <p>The API will return a JSON response containing the warranty details.</p>
+    </div>
+</body>
+</html>
