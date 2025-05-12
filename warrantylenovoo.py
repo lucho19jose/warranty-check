@@ -112,6 +112,8 @@ def get_lenovo_warranty_info(serial_number):
         response_ibase_api.raise_for_status()
         ibase_data = response_ibase_api.json()
 
+        return ibase_data # Return the raw data for further processing
+
         print(f"DEBUG: Full JSON response from getIbaseInfo API for SN {serial_number}:")
         print(json.dumps(ibase_data, indent=2)) # Print the full structure for verification
 

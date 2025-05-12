@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from warrantylenovo import get_lenovo_warranty_info # Import the function
+from warrantylenovoo import get_lenovo_warranty_info # Import the function
 
 app = FastAPI(
     title="Lenovo Warranty Check API",
