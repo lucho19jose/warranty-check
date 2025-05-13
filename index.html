@@ -94,8 +94,7 @@
         }
         .success {
             color: #42d392;
-        }
-        .warranty-item {
+        }        .warranty-item {
             border-bottom: 1px solid #444;
             padding-bottom: 0.8em;
             margin-bottom: 0.8em;
@@ -106,6 +105,13 @@
         }
         .warranty-item strong {
             color: #a0a0a0;
+            display: inline-block;
+            min-width: 100px;
+        }
+        .warranty-item p {
+            margin: 0.2em 0; /* Minimal vertical spacing between paragraphs */
+            line-height: 1.3; /* Tighter line height */
+            padding: 0; /* Remove any padding */
         }
         .error-message { /* For messages shown at the top of results when it's an error */
             color: #ff6b6b;
@@ -152,6 +158,68 @@
     </div>
 
     <script>
+        function transformLenovoData(payload) {
+            // payload here is the content of res.body.detail.data.data (or similar path)
+            if (!payload || !payload.machineInfo) {
+                console.error("Invalid payload for transformation, machineInfo missing:", payload);
+                return { 
+                    model: 'N/A',
+                    warranties: [{
+                        is_error: true,
+                        name: 'Data Transformation Error',
+                        error_detail: 'Could not extract machine information from API response.'
+                    }]
+                };
+            }
+
+            const transformed = {
+                model: payload.machineInfo.productName || payload.machineInfo.model || 'N/A', // Fallback to model if productName not present
+                warranties: []
+            };
+
+            const warrantySources = [];
+            if (payload.baseWarranties && Array.isArray(payload.baseWarranties)) {
+                warrantySources.push(...payload.baseWarranties);
+            }
+            if (payload.upgradeWarranties && Array.isArray(payload.upgradeWarranties)) {
+                warrantySources.push(...payload.upgradeWarranties);
+            }
+            if (payload.contractWarranties && Array.isArray(payload.contractWarranties)) {
+                warrantySources.push(...payload.contractWarranties);
+            }
+            // If currentWarranty is an object and should be displayed, add it. 
+            // This makes it consistent if it's the only warranty sometimes.
+            // However, the original render function expects an array of warranties.
+            // For simplicity, we'll stick to arrays from base, upgrade, contract.
+            // If currentWarranty needs to be displayed distinctly or merged, logic here would expand.
+
+            transformed.warranties = warrantySources.map(w => ({
+                name: w.name || 'N/A',
+                status: payload.warrantyStatus || w.status || 'N/A', // Use overall status if item status not present
+                type: w.type || 'N/A',
+                start_date: w.startDate || 'N/A',
+                end_date: w.endDate || 'N/A',
+                description: w.description || 'N/A',
+                is_error: false 
+            }));
+            
+            // If no warranties were found in the arrays, but a currentWarranty object exists, consider adding it.
+            // This is a common pattern if currentWarranty summarizes the active one.
+            if (transformed.warranties.length === 0 && payload.currentWarranty && typeof payload.currentWarranty === 'object' && payload.currentWarranty.name) {
+                transformed.warranties.push({
+                    name: payload.currentWarranty.name || 'N/A',
+                    status: payload.warrantyStatus || payload.currentWarranty.status || 'N/A',
+                    type: payload.currentWarranty.type || 'N/A',
+                    start_date: payload.currentWarranty.startDate || 'N/A',
+                    end_date: payload.currentWarranty.endDate || 'N/A',
+                    description: payload.currentWarranty.description || 'N/A',
+                    is_error: false
+                });
+            }
+
+            return transformed;
+        }
+
         function renderApiResponse(dataToRender, resultsDiv, topMessage) {
             resultsDiv.innerHTML = ''; // Clear previous content or loading message
 
@@ -187,21 +255,10 @@
                 dataToRender.warranties.forEach(warranty => {
                     const itemDiv = document.createElement('div');
                     itemDiv.classList.add('warranty-item');
-                    
-                    if (warranty.is_error) {
-                        itemDiv.innerHTML = `
-                            <p><strong>Name:</strong> ${warranty.name || 'Error Entry'}</p>
-                            <p class="error"><strong>Error Detail:</strong> ${warranty.error_detail || 'Unknown error'}</p>
-                        `;
+                      if (warranty.is_error) {
+                        itemDiv.innerHTML = `<p><strong>Name:</strong> ${warranty.name || 'Error Entry'}</p><p class="error"><strong>Error Detail:</strong> ${warranty.error_detail || 'Unknown error'}</p>`;
                     } else {
-                        itemDiv.innerHTML = `
-                            <p><strong>Name:</strong> ${warranty.name || 'N/A'}</p>
-                            <p><strong>Status:</strong> ${warranty.status || 'N/A'}</p>
-                            <p><strong>Type:</strong> ${warranty.type || 'N/A'}</p>
-                            <p><strong>Start Date:</strong> ${warranty.start_date || 'N/A'}</p>
-                            <p><strong>End Date:</strong> ${warranty.end_date || 'N/A'}</p>
-                            <p><strong>Description:</strong> ${warranty.description || 'N/A'}</p>
-                        `;
+                        itemDiv.innerHTML = `<p><strong>Name:</strong> ${warranty.name || 'N/A'}</p><p><strong>Status:</strong> ${warranty.status || 'N/A'}</p><p><strong>Type:</strong> ${warranty.type || 'N/A'}</p><p><strong>Start Date:</strong> ${warranty.start_date || 'N/A'}</p><p><strong>End Date:</strong> ${warranty.end_date || 'N/A'}</p><p><strong>Description:</strong> ${warranty.description || 'N/A'}</p>`;
                     }
                     resultsDiv.appendChild(itemDiv);
                 });
@@ -231,12 +288,9 @@
 
             fetch(apiUrl)
                 .then(response => {
-                    // Try to parse JSON regardless of response.ok, as error details might be in JSON.
                     return response.json().then(jsonBody => {
-                        // Pass along the original response status and the parsed body.
                         return { ok: response.ok, status: response.status, body: jsonBody };
                     }).catch(jsonError => {
-                        // If JSON parsing fails (e.g., HTML error page), create a structured error.
                         console.error('JSON parsing error:', jsonError);
                         return { 
                             ok: false, 
@@ -251,23 +305,42 @@
                     });
                 })
                 .then(res => { // res is { ok, status, body }
-                    if (!res.ok) {
-                        let displayMessage = `API Error (${res.status})`;
-                        let dataToRender = null;
+                    let actualPayload = null;
+                    let displayMessage = null;
 
-                        if (res.body && res.body.detail) { // Structure from FastAPI HTTPException
-                            displayMessage = res.body.detail.message || JSON.stringify(res.body.detail);
-                            // dataToRender expects the {"model": ..., "warranties": ...} structure
-                            dataToRender = res.body.detail.data; 
-                        } else if (res.isJsonParsingError) {
-                             displayMessage = res.body.detail.message; // Use the message from the catch block
-                        } else if (res.body) {
-                            // Fallback for other error structures if body is somewhat parsable
-                            displayMessage = `Error: ${JSON.stringify(res.body)}`;
+                    // Check for the specific nested structure first, typical of FastAPI HTTPException with detail
+                    if (res.body && res.body.detail) {
+                        displayMessage = res.body.detail.message || `API Note (${res.status})`;
+                        if (res.body.detail.data && res.body.detail.data.data && res.body.detail.data.data.machineInfo) {
+                            actualPayload = res.body.detail.data.data;
+                        } else if (res.body.detail.data && res.body.detail.data.machineInfo) { // If data is one level less deep under detail
+                            actualPayload = res.body.detail.data;
                         }
-                        renderApiResponse(dataToRender, resultsDiv, displayMessage);
-                    } else { // res.ok, body is the direct {"model": ..., "warranties": ...}
-                        renderApiResponse(res.body, resultsDiv, null);
+                    } else if (res.ok && res.body && res.body.data && res.body.data.machineInfo) { 
+                        // Case: Successful 200 OK, and data is nested under a 'data' key (e.g. {code, msg, data: {payload}} )
+                        actualPayload = res.body.data;
+                    } else if (res.ok && res.body && res.body.machineInfo) { 
+                        // Case: Successful 200 OK, and body is the payload directly (e.g. {machineInfo, ...})
+                        actualPayload = res.body;
+                    } else { // Fallback for other structures or true errors not fitting above patterns
+                        if (!res.ok) { // If it's an error and not parsed above
+                           displayMessage = `API Error (${res.status})`;
+                           if (res.body && typeof res.body === 'object' && Object.keys(res.body).length > 0) { // if body has some content
+                               displayMessage += `: ${JSON.stringify(res.body)}`;
+                           } else if (res.isJsonParsingError && res.body && res.body.detail && res.body.detail.message) { // from the catch block
+                               displayMessage = res.body.detail.message;
+                           }
+                        } else { // res.ok but structure is unexpected
+                            displayMessage = "Received data, but in an unexpected format.";
+                            console.error(displayMessage, res.body);
+                        }
+                    }                    if (actualPayload) {
+                        const finalRenderData = transformLenovoData(actualPayload);
+                        // Don't show "Product information not found or incomplete" message if we have actual data
+                        const filteredMessage = displayMessage === "Product information not found or incomplete." ? null : displayMessage;
+                        renderApiResponse(finalRenderData, resultsDiv, filteredMessage); 
+                    } else {
+                        renderApiResponse(null, resultsDiv, displayMessage || "Failed to retrieve or parse warranty data.");
                     }
                 })
                 .catch(networkError => { // Catches only network errors or issues before .then(response => ...)
