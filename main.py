@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware # Added import
 import uvicorn
 from warrantylenovoo import get_lenovo_warranty_info # Import the function
 
@@ -6,6 +7,24 @@ app = FastAPI(
     title="Lenovo Warranty Check API",
     description="An API to check Lenovo warranty status using a serial number.",
     version="1.0.0",
+)
+
+# CORS Middleware Configuration
+origins = [
+    "http://127.0.0.1:5500",  # Your local frontend development server
+    "http://localhost:5500",   # Another common local dev origin
+    # Add any other origins you need to allow, like your production frontend URL
+    # "https://your-production-frontend.com", 
+    # Using "*" will allow all origins, but be more specific in production
+     "*" 
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # Can be a list of origins or "*" for all origins
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"], # Allows all headers
 )
 
 @app.get("/warranty/{serial_number}")

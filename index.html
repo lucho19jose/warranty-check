@@ -49,6 +49,74 @@
         p {
             margin-bottom: 1.2em;
         }
+        /* Added styles for new elements */
+        .input-group {
+            margin-top: 2em;
+            margin-bottom: 1em;
+            display: flex;
+            gap: 0.5em;
+        }
+        #serialInput {
+            flex-grow: 1;
+            padding: 0.7em;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            font-size: 1em;
+        }
+        #checkButton {
+            padding: 0.7em 1.5em;
+            border-radius: 5px;
+            border: none;
+            background-color: #42d392;
+            color: #1a1a1a;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #checkButton:hover {
+            background-color: #38b880;
+        }
+        #results {
+            margin-top: 1.5em;
+            padding: 1em;
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            white-space: pre-wrap; /* To display JSON nicely */
+            word-wrap: break-word;
+            min-height: 50px;
+            color: #e0e0e0;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #42d392;
+        }
+        .warranty-item {
+            border-bottom: 1px solid #444;
+            padding-bottom: 0.8em;
+            margin-bottom: 0.8em;
+        }
+        .warranty-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .warranty-item strong {
+            color: #a0a0a0;
+        }
+        .error-message { /* For messages shown at the top of results when it's an error */
+            color: #ff6b6b;
+            font-weight: bold;
+            margin-bottom: 1em;
+        }
+        .info-message { /* For non-critical messages shown at the top */
+            color: #64b5f6; /* A light blue, for example */
+            font-weight: bold;
+            margin-bottom: 1em;
+        }
     </style>
     <script type="text/javascript">
     (function(c,l,a,r,i,t,y){
@@ -62,8 +130,17 @@
     <div class="container">
         <h1>Lenovo Warranty Check API</h1>
         <p>Welcome! This API allows you to check the warranty status of Lenovo devices using their serial number.</p>
+
+        <h2>Check Warranty Directly</h2>
+        <div class="input-group">
+            <input type="text" id="serialInput" placeholder="Enter Serial Number">
+            <button id="checkButton">Check Warranty</button>
+        </div>
+        <div id="results">
+            <p>Enter a serial number above and click "Check Warranty" to see details here.</p>
+        </div>
         
-        <h2>How to Use</h2>
+        <h2>How to Use (API Endpoint)</h2>
         <p>Make a GET request to the following endpoint, replacing <code>{serial_number}</code> with the actual serial number:</p>
         <p><code>https://warranty-check.sigatics.com/warranty/{serial_number}</code></p>
 
@@ -73,5 +150,131 @@
         
         <p>The API will return a JSON response containing the warranty details.</p>
     </div>
+
+    <script>
+        function renderApiResponse(dataToRender, resultsDiv, topMessage) {
+            resultsDiv.innerHTML = ''; // Clear previous content or loading message
+
+            if (topMessage) {
+                const messageP = document.createElement('p');
+                // Determine class based on whether we have valid data to render alongside the message
+                messageP.className = (dataToRender && typeof dataToRender.model !== 'undefined' && dataToRender.model !== 'N/A') ? 'info-message' : 'error-message';
+                messageP.textContent = topMessage;
+                resultsDiv.appendChild(messageP);
+            }
+
+            // If dataToRender is null or not the expected structure, and we haven't already shown a topMessage that implies an error,
+            // show a generic processing error.
+            if (!dataToRender || typeof dataToRender.model === 'undefined') {
+                if (!topMessage || !topMessage.toLowerCase().includes('error')) { // Avoid double error messages if topMessage was already an error
+                     const errorP = document.createElement('p');
+                     errorP.className = 'error'; // General error class for text
+                     errorP.textContent = 'Failed to process warranty data or the data is incomplete.';
+                     resultsDiv.appendChild(errorP);
+                }
+                return; // Stop further rendering if no valid data
+            }
+
+            const modelP = document.createElement('p');
+            modelP.innerHTML = `<strong>Model:</strong> ${dataToRender.model || 'N/A'}`;
+            resultsDiv.appendChild(modelP);
+
+            if (dataToRender.warranties && dataToRender.warranties.length > 0) {
+                const warrantiesTitle = document.createElement('h3');
+                warrantiesTitle.textContent = 'Warranties:';
+                resultsDiv.appendChild(warrantiesTitle);
+
+                dataToRender.warranties.forEach(warranty => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.classList.add('warranty-item');
+                    
+                    if (warranty.is_error) {
+                        itemDiv.innerHTML = `
+                            <p><strong>Name:</strong> ${warranty.name || 'Error Entry'}</p>
+                            <p class="error"><strong>Error Detail:</strong> ${warranty.error_detail || 'Unknown error'}</p>
+                        `;
+                    } else {
+                        itemDiv.innerHTML = `
+                            <p><strong>Name:</strong> ${warranty.name || 'N/A'}</p>
+                            <p><strong>Status:</strong> ${warranty.status || 'N/A'}</p>
+                            <p><strong>Type:</strong> ${warranty.type || 'N/A'}</p>
+                            <p><strong>Start Date:</strong> ${warranty.start_date || 'N/A'}</p>
+                            <p><strong>End Date:</strong> ${warranty.end_date || 'N/A'}</p>
+                            <p><strong>Description:</strong> ${warranty.description || 'N/A'}</p>
+                        `;
+                    }
+                    resultsDiv.appendChild(itemDiv);
+                });
+            } else if (dataToRender.model && dataToRender.model !== 'N/A') { // Model found but no warranties
+                const noWarrantiesP = document.createElement('p');
+                noWarrantiesP.textContent = 'No warranty information found for this model.';
+                resultsDiv.appendChild(noWarrantiesP);
+            } else if (!topMessage && dataToRender.model === 'N/A') { 
+                // If model is N/A, no warranties, and no specific top message was displayed
+                const noInfoP = document.createElement('p');
+                noInfoP.textContent = 'Product information could not be fully retrieved or is unavailable.';
+                resultsDiv.appendChild(noInfoP);
+            }
+        }
+
+        document.getElementById('checkButton').addEventListener('click', function() {
+            const serialNumber = document.getElementById('serialInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Loading...</p>'; 
+
+            if (!serialNumber) {
+                renderApiResponse(null, resultsDiv, 'Please enter a serial number.');
+                return;
+            }
+
+            const apiUrl = `https://warranty-check.sigatics.com/warranty/${serialNumber}`;
+
+            fetch(apiUrl)
+                .then(response => {
+                    // Try to parse JSON regardless of response.ok, as error details might be in JSON.
+                    return response.json().then(jsonBody => {
+                        // Pass along the original response status and the parsed body.
+                        return { ok: response.ok, status: response.status, body: jsonBody };
+                    }).catch(jsonError => {
+                        // If JSON parsing fails (e.g., HTML error page), create a structured error.
+                        console.error('JSON parsing error:', jsonError);
+                        return { 
+                            ok: false, 
+                            status: response.status, 
+                            body: { 
+                                detail: { 
+                                    message: `Server returned a non-JSON response. Status: ${response.status} ${response.statusText}` 
+                                } 
+                            },
+                            isJsonParsingError: true 
+                        };
+                    });
+                })
+                .then(res => { // res is { ok, status, body }
+                    if (!res.ok) {
+                        let displayMessage = `API Error (${res.status})`;
+                        let dataToRender = null;
+
+                        if (res.body && res.body.detail) { // Structure from FastAPI HTTPException
+                            displayMessage = res.body.detail.message || JSON.stringify(res.body.detail);
+                            // dataToRender expects the {"model": ..., "warranties": ...} structure
+                            dataToRender = res.body.detail.data; 
+                        } else if (res.isJsonParsingError) {
+                             displayMessage = res.body.detail.message; // Use the message from the catch block
+                        } else if (res.body) {
+                            // Fallback for other error structures if body is somewhat parsable
+                            displayMessage = `Error: ${JSON.stringify(res.body)}`;
+                        }
+                        renderApiResponse(dataToRender, resultsDiv, displayMessage);
+                    } else { // res.ok, body is the direct {"model": ..., "warranties": ...}
+                        renderApiResponse(res.body, resultsDiv, null);
+                    }
+                })
+                .catch(networkError => { // Catches only network errors or issues before .then(response => ...)
+                    console.error('Network or initial fetch error:', networkError);
+                    renderApiResponse(null, resultsDiv, `Network error: ${networkError.message}`);
+                });
+        });
+    </script>
 </body>
 </html>
