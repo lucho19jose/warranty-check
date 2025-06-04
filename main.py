@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from datetime import datetime
 from warrantylenovoo import get_lenovo_warranty_info # Import the function
@@ -9,6 +10,15 @@ app = FastAPI(
     title="Lenovo Warranty Check API",
     description="An API to check Lenovo warranty status using a serial number.",
     version="1.0.0",
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 def determinar_marca_por_serial(serial_number):
