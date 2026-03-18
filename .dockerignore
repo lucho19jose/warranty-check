@@ -1,0 +1,11 @@
+.venv
+__pycache__
+.git
+*.pyc
+.env
+.env.*
+CLAUDE.md
+ultra.py
+ultra_fast_warranty_prod.py
+warrantylenovo.py
+requests_you.py

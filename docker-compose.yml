@@ -1,0 +1,9 @@
+services:
+  warranty-api:
+    build: .
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    shm_size: "256mb"
+    environment:
+      - PYTHONUNBUFFERED=1

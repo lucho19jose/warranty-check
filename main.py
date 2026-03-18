@@ -150,9 +150,17 @@ async def check_warranty(serial_number: str):
         # If it's HP, use the ultra-fast warranty check
         print(f"Using ultra-fast warranty check for HP SN: {serial_number}")
         warranty_data = extract_warranty_ultra_fast(serial_number)
-        if not warranty_data:
-            raise HTTPException(status_code=404, detail="Warranty information not found for HP serial number.")
-        return warranty_data
+        if not warranty_data or "error" in warranty_data:
+            detail = warranty_data.get("error", "Warranty information not found") if warranty_data else "Warranty information not found"
+            raise HTTPException(status_code=404, detail=detail)
+        # Normalize HP response to match Lenovo format
+        return {
+            "Brand": "HP",
+            "Product Name": warranty_data.get("product_name", "N/A") or "N/A",
+            "Serial Number": warranty_data.get("serial_number", serial_number),
+            "Warranty Start": warranty_data.get("warranty_start", "N/A") or "N/A",
+            "Warranty End": warranty_data.get("warranty_end", "N/A") or "N/A",
+        }
     elif brand == "Lenovo":
         warranty_data = get_lenovo_warranty_info(serial_number)
 
